@@ -1,3 +1,4 @@
+
 # VLM Assistant
 
 A voice assistant for solving a Rubik's Cube, built in Unity. The assistant reads the state of a rendered cube from a picture,
@@ -9,6 +10,7 @@ Forked from [stytim/agent-pipeline-minimal](https://github.com/stytim/agent-pipe
 
 ## Demo
 
+https://github.com/user-attachments/assets/cd575943-a12d-40ea-9872-2a7dce0a827e
 [**Watch the demo video**](docs/demo.mp4) (about 3 minutes, with sound): the assistant is asked for help by voice, reads the cube, and
 speaks the next moves while the debug overlay, the on-screen console and the solution panel show what is happening. It was recorded
 with the built-in recorder.
