@@ -1,0 +1,8 @@
+Several readings of the same Rubik's Cube were made by a vision system. Each reading lists the faces it could see, as 9 letters per face, row by row. The letters are face names: U (white, up), R (red, right), F (green, front), D (yellow, down), L (orange, left), B (blue, back). Every reading can be wrong in a few stickers and can miss faces.
+
+{READINGS}
+
+Combine the readings into ONE answer. For every face that appears in at least one reading, give the 9 letters that are most likely correct: at each of the 9 positions take the letter that most of the readings agree on. Never use a letter that no reading has at that position. The 5th letter of a face is always the face's own letter.
+
+Reply with exactly one JSON object and nothing else, in this format:
+{"faces": {"<face letter>": "<9 letters>"}}

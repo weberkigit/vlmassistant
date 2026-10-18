@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
 {
-    private string ttsUrl = "http://192.168.0.22:8880";  // TTS Server URL
+    [SerializeField] private string ttsUrl = "http://localhost:8880";  // TTS Server URL
     public string host = "localhost";
     public int port = 8880; // TTS Server Port
     [Header("Audio Settings")]
@@ -60,6 +60,7 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
             selectedVoice = VoiceOption.af_heart; // Set to English voice
         }
 
+        audioStatus = ITTSSpeaker.AudioStatus.Playing;
         StartCoroutine(StreamTTS(text));
     }
 
@@ -67,11 +68,13 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
     // Call this function to start speaking text
     public void Speak()
     {
+        Debug.Log("🔥 Kokoro Speak triggered");
         StartCoroutine(StreamTTS(text));
     }
 
     private IEnumerator StreamTTS(string text)
     {
+        Debug.Log("StreamTTS STARTED");
         // Initialize stopwatch for latency measurement
         DateTime startTime = DateTime.Now;
 
@@ -80,7 +83,7 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
         {
             input = text,
             voice = selectedVoice.ToString(),
-            response_format = "pcm",
+            response_format = "wav",
             stream = true
         });
 
@@ -93,7 +96,7 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-
+            Debug.Log("Sending TTS request...");
             // Send the request and wait for data
             yield return request.SendWebRequest();
 
@@ -103,22 +106,36 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
                 var latency = DateTime.Now - startTime;
                 Debug.Log($"Kokoro TTS Latency: {latency.Milliseconds} ms.");
                 byte[] audioData = request.downloadHandler.data;
+                Debug.Log("First 20 bytes: " + BitConverter.ToString(audioData, 0, 20));
 
                 // play immediatly or play in queue
+                PlayPCMStream(audioData);
                 if (!playInQueue)
                 {
-                    PlayPCMStream(audioData);
+                    //PlayPCMStream(audioData);
                 }
                 else
                 {
-                    EnqueueAudio(audioData);
+                    //EnqueueAudio(audioData);
                 }
+                StartCoroutine(WaitForPlaybackToFinish());
             }
             else
             {
                 Debug.LogError($"Error: {request.responseCode} - {request.error}");
                 audioStatus = ITTSSpeaker.AudioStatus.Error;
             }
+        }
+    }
+
+    private IEnumerator WaitForPlaybackToFinish()
+    {
+        // Let AudioSource.Play() take effect before checking isPlaying.
+        yield return null;
+        yield return new WaitUntil(() => audioSource == null || !audioSource.isPlaying);
+        if (audioStatus == ITTSSpeaker.AudioStatus.Playing)
+        {
+            audioStatus = ITTSSpeaker.AudioStatus.Completed;
         }
     }
 
@@ -157,17 +174,24 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
     }
     private void PlayPCMStream(byte[] audioData)
     {
-        // Convert byte[] PCM data to float[]
-        float[] floatData = ConvertPCMToFloat(audioData);
+    Debug.LogError("trying to play audio in wav format");
+    if (audioSource == null)
+    {
+        Debug.LogError("AudioSource is missing!");
+        return;
+    }
 
-        // Create AudioClip
-        AudioClip clip = AudioClip.Create("TTS_Audio", floatData.Length, 1, sampleRate, false);
-        clip.SetData(floatData, 0);
+    AudioClip clip = WavUtility.ToAudioClip(audioData);
 
-        // Play AudioClip
-        audioSource.clip = clip;
-        audioSource.Play();
+    if (clip == null)
+    {
+        Debug.LogError("Failed to decode WAV audio!");
+        return;
+    }
 
+    audioSource.clip = clip;
+    Debug.LogError("Playing audio in wav format");
+    audioSource.Play();
     }
     public void Stop()
     {
@@ -178,6 +202,7 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
             audioSource.Stop();
         }
         isPlaying = false;
+        audioStatus = ITTSSpeaker.AudioStatus.Completed;
     }
     private float[] ConvertPCMToFloat(byte[] pcmData)
     {
@@ -198,8 +223,7 @@ public class KokoroTTSSpeaker : MonoBehaviour, ITTSSpeaker
 
     public ITTSSpeaker.AudioStatus GetStatus()
     {
-        // KokoroTTS does not have download tracking, so return Completed
-        return ITTSSpeaker.AudioStatus.Completed;
+        return audioStatus;
     }
 
     [ContextMenu("Test Connection")]

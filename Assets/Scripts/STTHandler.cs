@@ -144,11 +144,11 @@ public class STTHandler : MonoBehaviour
         // Connection status tracking
         OnConnected?.AddListener(() => {
             lastServerCheckResult = true;
-            if (statusIndicator != null) statusIndicator.color = Color.green;
+            if (statusIndicator != null) statusIndicator.color = ServerStatusColors.Connected;
         });
         OnDisconnected?.AddListener(() => {
             lastServerCheckResult = false;
-            if (statusIndicator != null) statusIndicator.color = Color.red;
+            if (statusIndicator != null) statusIndicator.color = ServerStatusColors.Disconnected;
         });
 
         // Parakeet events
@@ -170,7 +170,7 @@ public class STTHandler : MonoBehaviour
         whisperHandler.OnSpeechStopDetected?.AddListener(() => OnSpeechStopDetected?.Invoke());
         whisperHandler.OnServerCheckCompleted?.AddListener((result) => {
             lastServerCheckResult = result;
-            if (statusIndicator != null) statusIndicator.color = result ? Color.green : Color.red;
+            if (statusIndicator != null) statusIndicator.color = result ? ServerStatusColors.Connected : ServerStatusColors.Disconnected;
             OnServerCheckCompleted?.Invoke(result);
         });
         whisperHandler.OnInterruptionDetected?.AddListener(() => OnInterruptionDetected?.Invoke());
@@ -198,9 +198,24 @@ public class STTHandler : MonoBehaviour
 
     public void Unmute()
     {
+        // A manual mute from the UI wins over the automatic unmuting done by ConversationHandler's
+        // listening loop, which would otherwise re-open the mic on the very next frame.
+        if (IsUserMuted) return;
+
         if (activeServerType == STTServerType.Parakeet) parakeetHandler.Unmute();
         else whisperHandler.Unmute();
     }
+
+    /// <summary>True while the user has muted the microphone via the UI button.</summary>
+    public bool IsUserMuted { get; private set; }
+
+    public void SetUserMuted(bool muted)
+    {
+        IsUserMuted = muted;
+        if (muted) Mute();
+    }
+
+    public void ToggleUserMute() => SetUserMuted(!IsUserMuted);
 
     public void NotifyTTSStarted()
     {

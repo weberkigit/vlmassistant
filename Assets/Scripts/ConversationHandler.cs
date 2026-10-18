@@ -21,9 +21,41 @@ public class ConversationHandler : MonoBehaviour
     private Coroutine conversationRoutine;
     private bool isAudioPlaying = false;
 
+    [Tooltip("Play a short test tone at startup. Off by default; the 'Test Sound' button plays it on demand. " +
+        "If the first spoken reply ever gets clipped on some audio device, turning this on warms the output up.")]
+    public bool playStartupBeep = false;
+
+    private AudioClip testTone;
+
+    /// <summary>Plays a short, quiet 440 Hz tone through the conversation audio source to check the speakers.</summary>
+    public void PlayTestSound()
+    {
+        AudioSource source = GetComponent<AudioSource>();
+        if (source == null) source = audioSource;
+        if (source == null) return;
+
+        if (testTone == null)
+        {
+            const int sampleRate = 44100;
+            int samples = sampleRate / 2;               // half a second
+            int fade = sampleRate / 50;                 // 20 ms fades so it doesn't click
+            testTone = AudioClip.Create("test tone", samples, 1, sampleRate, false);
+            float[] data = new float[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                float envelope = Mathf.Min(1f, Mathf.Min(i, samples - 1 - i) / (float)fade);
+                data[i] = 0.25f * envelope * Mathf.Sin(2f * Mathf.PI * 440f * i / sampleRate);
+            }
+            testTone.SetData(data, 0);
+        }
+
+        source.PlayOneShot(testTone);
+    }
+
     // Start is called before the first frame update
     void Start()
     {
+        if (playStartupBeep) PlayTestSound();
         // sttHandler.SetUserRoleName(userRoleName);
         AECAudioProcessor.Instance.ProcessAEC = allowInterruptions;
 
@@ -33,35 +65,37 @@ public class ConversationHandler : MonoBehaviour
         }
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-
-
-    }
 
     void OnGUI()
     {
-        GUILayout.BeginArea(new Rect(Screen.width - 140, 0, 140, 120));
+        // Four rows in the top-right corner; the Debug Tools menu sits right below them.
+        const float width = 176f, rowH = 22f, gap = 4f;
+        Matrix4x4 unscaled = DebugUi.Begin();
+        float x = DebugUi.Width - width - 6f;
+        float y = 6f;
+        DebugUi.ConversationButtons = new Rect(x, y, width, 4 * rowH + 3 * gap);
 
-        if (GUILayout.Button("Start Conversation"))
+        if (DebugUi.Button(new Rect(x, y, width, rowH), "Start conversation")) StartConversation();
+        y += rowH + gap;
+        if (DebugUi.Button(new Rect(x, y, width, rowH), "Stop conversation")) StopConversation();
+        y += rowH + gap;
+        if (sttHandler != null)
         {
-            StartConversation();
+            if (DebugUi.Toggle(new Rect(x, y, width, rowH), "Mic muted", sttHandler.IsUserMuted)) sttHandler.ToggleUserMute();
         }
-
-        if (GUILayout.Button("Stop Conversation"))
+        y += rowH + gap;
+        if (ttsHandler != null)
         {
-            StopConversation();
+            if (DebugUi.Toggle(new Rect(x, y, width, rowH), "Voice muted", ttsHandler.IsVoiceMuted)) ttsHandler.ToggleVoiceMute();
         }
-
-        GUILayout.EndArea();
+        DebugUi.End(unscaled);
     }
 
     public void TriggerConversation()
     {
         if (conversationRoutine == null)
         {
-            llmHandler.Question("System: Start the Conversation");
+            llmHandler.QuestionAboutCube("System: Start the Conversation");
             StartConversation();
             statusIndicator.color = Color.blue; 
         }
@@ -108,6 +142,10 @@ public class ConversationHandler : MonoBehaviour
             if (llmHandler != null)
             {
                 llmHandler.CancelReply();
+                // Reset conversation history here so it doesn't grow unbounded across the whole
+                // session - a long-lived history makes every future generation progressively
+                // slower, since each new token has to attend over an ever-larger context.
+                if (llmHandler.llmCharacter != null) _ = llmHandler.llmCharacter.ClearHistory();
             }
         }
         catch (System.Exception ex)
@@ -159,9 +197,6 @@ public class ConversationHandler : MonoBehaviour
             }
             else
             {
-                Debug.Log($"audioSource.isPlaying: {audioSource.isPlaying}");
-                Debug.Log($"llmHandler.waitingForReply: {llmHandler.waitingForReply}");
-                Debug.Log($"ttsHandler.waitingForAudioSynthesize: {ttsHandler.waitingForAudioSynthesize()}");
                 if (audioSource.isPlaying || llmHandler.waitingForReply || ttsHandler.waitingForAudioSynthesize())
                 {
                     sttHandler.Mute();

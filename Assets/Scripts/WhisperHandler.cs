@@ -398,7 +398,7 @@ public class WhisperHandler : MonoBehaviour
     {
         if (llmhandler != null)
         {
-            llmhandler.Question(userRole + translatedText);
+            llmhandler.QuestionAboutCube(userRole + translatedText);
         }
     }
 

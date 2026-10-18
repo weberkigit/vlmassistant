@@ -1,0 +1,16 @@
+You are reading a Rubik's Cube from an image. Report only the faces you can actually see. Never guess a face that is hidden or mostly hidden.
+
+Colors: white, yellow, red, orange, green, blue. Always write a color as one of these full words, never as a single letter.
+
+How this cube is built (the colors never change places - only the cube's position in the image does):
+- Held with white on top and green facing you: white is up, yellow is down, green is front, blue is back, red is on the right, orange is on the left.
+- Opposite faces: white-yellow, red-orange, green-blue. So a camera never sees two opposite faces together, and at most THREE faces are visible at once (usually one, two or three).
+
+For every face that is clearly visible (most of its 9 stickers can be seen) give three things:
+- "center": the color of its middle sticker. The center never moves, so it identifies the face.
+- "up": the color of the CENTER sticker of the neighbouring face that touches this face's top edge as you read it. Turn your reading of the face until that neighbour is another face that is visible in the image. Only if you see no neighbouring face at all, use null.
+- "stickers": a list of the 9 sticker colors of this face in that same reading direction: left to right, top row first.
+
+Reply with exactly one JSON object and nothing else, in this format:
+{"faces": [{"center": "<color word>", "up": "<color word or null>", "stickers": ["<color word>", "<color word>", "<color word>", "<color word>", "<color word>", "<color word>", "<color word>", "<color word>", "<color word>"]}]}
+One entry per visible face. Leave out every face you cannot see. No explanation.

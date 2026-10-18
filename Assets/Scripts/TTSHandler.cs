@@ -19,7 +19,12 @@ public class TTSHandler : MonoBehaviour
     public KokoroTTSSpeaker kokoroTTSSpeaker;
     public ElevenLabsTTS elevenLabsTTS;
 
+    [Header("Scripts")]
+    [Tooltip("Notified when TTS starts/stops speaking so STT can mute/ignore its own voice.")]
+    public STTHandler sttHandler;
+
     private ITTSSpeaker TSSpeaker;
+    private Coroutine ttsStateCoroutine;
 
     void Awake()
     {
@@ -50,7 +55,7 @@ public class TTSHandler : MonoBehaviour
         TSSpeaker.TestConnection((isSuccess) => {
             if (statusIndicator != null)
             {
-                statusIndicator.color = isSuccess ? Color.green : Color.red;
+                statusIndicator.color = isSuccess ? ServerStatusColors.Connected : ServerStatusColors.Disconnected;
             }
         });
     }
@@ -76,13 +81,49 @@ public class TTSHandler : MonoBehaviour
 
     public void Speak(string input, string language = "English")
     {
+        sttHandler?.NotifyTTSStarted();
         TSSpeaker.Speak(input, language);
+
+        if (ttsStateCoroutine != null) StopCoroutine(ttsStateCoroutine);
+        ttsStateCoroutine = StartCoroutine(NotifySTTWhenPlaybackEnds());
+    }
+
+    private IEnumerator NotifySTTWhenPlaybackEnds()
+    {
+        yield return new WaitUntil(() => !waitingForAudioSynthesize());
+        sttHandler?.NotifyTTSStopped();
+        ttsStateCoroutine = null;
     }
 
     public bool waitingForAudioSynthesize()
     {
         return TSSpeaker.GetStatus() == ITTSSpeaker.AudioStatus.Playing;
     }
+
+    /// <summary>True while the assistant's spoken voice is silenced via the UI button.</summary>
+    public bool IsVoiceMuted { get; private set; }
+
+    /// <summary>
+    /// Silences (or restores) the assistant's voice by muting the AudioSources the TTS engines play
+    /// through. Muting the source rather than skipping Speak() keeps playback timing intact, so captions
+    /// still appear and the conversation loop still waits for the reply to "finish" as usual.
+    /// </summary>
+    public void SetVoiceMuted(bool muted)
+    {
+        IsVoiceMuted = muted;
+
+        if (kokoroTTSSpeaker != null && kokoroTTSSpeaker.audioSource != null)
+            kokoroTTSSpeaker.audioSource.mute = muted;
+
+        var streamAudioSource = GetComponent<SyncAudioSource>();
+        if (streamAudioSource != null)
+        {
+            var unitySource = streamAudioSource.GetComponent<AudioSource>();
+            if (unitySource != null) unitySource.mute = muted;
+        }
+    }
+
+    public void ToggleVoiceMute() => SetVoiceMuted(!IsVoiceMuted);
 
     public void ReportError()
     {
@@ -92,6 +133,12 @@ public class TTSHandler : MonoBehaviour
     public void CancelSpeak()
     {
         TSSpeaker.Stop();
-        // sttHandler.NotifyTTSStopped();
+
+        if (ttsStateCoroutine != null)
+        {
+            StopCoroutine(ttsStateCoroutine);
+            ttsStateCoroutine = null;
+        }
+        sttHandler?.NotifyTTSStopped();
     }
 }

@@ -1,0 +1,1 @@
+Describe this Rubik's Cube in 1-2 short sentences: the colors visible on each face and its current orientation. Do not answer any question. Reply as {"response": "<description>"}.

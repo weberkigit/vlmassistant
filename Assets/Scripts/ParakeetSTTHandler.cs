@@ -196,7 +196,7 @@ public class ParakeetSTTHandler : MonoBehaviour
     {
         if (llmhandler != null)
         {
-            llmhandler.Question(userRole + translatedText);
+            llmhandler.QuestionAboutCube(userRole + translatedText);
         }
     }
 
