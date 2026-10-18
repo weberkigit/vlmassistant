@@ -46,3 +46,6 @@ sysinfo.txt
 *.unitypackage
 
 .DS_Store
+
+# classical reader debug capture
+/DebugCaptures/
