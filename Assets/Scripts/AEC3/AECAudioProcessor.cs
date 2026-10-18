@@ -57,6 +57,9 @@ public class AECAudioProcessor : MonoBehaviour
     // Use a thread-safe queue if STT consumes from a different thread
     public ConcurrentQueue<short[]> OutputQueue = new ConcurrentQueue<short[]>();
 
+    /// <summary>The raw microphone samples (mono floats) and their sample rate, as they come in - for the session recorder.</summary>
+    public static event Action<float[], int> MicCaptured;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -431,6 +434,8 @@ public class AECAudioProcessor : MonoBehaviour
                 for (int i = 0; i < diff; i++) monoData[i] = micData[i * _micClip.channels];
                 micData = monoData;
             }
+
+            MicCaptured?.Invoke(micData, _micSampleRate);
 
             // Downsample and Add to Buffer
             ProcessCaptureInput(micData, _micSampleRate);
